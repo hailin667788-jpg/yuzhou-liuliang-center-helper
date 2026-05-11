@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: yuzhou-liuliang-center-helper
+    runtime: docker
+    plan: free
+    autoDeploy: true

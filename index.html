@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>微博热搜监控</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+    .container {
+      width: min(1180px, 96vw);
+      margin: 18px auto;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 14px;
+    }
+    .panel, .main {
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 6px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      padding: 14px;
+    }
+    .title {
+      margin: 0 0 10px;
+      font-size: 20px;
+      color: #e6162d;
+    }
+    .sub {
+      margin: 0 0 12px;
+      color: #666;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    textarea, input, button {
+      width: 100%;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      font-size: 14px;
+      padding: 9px 10px;
+      margin-bottom: 9px;
+    }
+    textarea { min-height: 94px; resize: vertical; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    button {
+      cursor: pointer;
+      background: #ff8200;
+      color: #fff;
+      border: none;
+      font-weight: 700;
+    }
+    button.secondary { background: #4b5563; }
+    button.danger { background: #ef4444; }
+    .state {
+      margin-top: 4px;
+      font-size: 13px;
+      color: #666;
+      line-height: 1.7;
+    }
+    .ok { color: #22c55e; font-weight: 700; }
+    .warn { color: #f59e0b; font-weight: 700; }
+    .error { color: #ef4444; font-weight: 700; }
+    .headline {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .headline h2 {
+      margin: 0;
+      font-size: 22px;
+      color: #e6162d;
+    }
+    .headline a {
+      font-size: 13px;
+      color: #1d4ed8;
+      text-decoration: none;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border-top: 1px solid #f0f0f0;
+    }
+    th, td {
+      padding: 10px 6px;
+      border-bottom: 1px solid #f2f2f2;
+      text-align: left;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+    th {
+      color: #999;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .rank {
+      width: 56px;
+      font-weight: 700;
+      color: #ff8200;
+    }
+    .keyword-cell a {
+      color: #333;
+      text-decoration: none;
+    }
+    .keyword-cell a:hover { color: #e6162d; }
+    .tag {
+      display: inline-block;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 12px;
+      background: #fff7ed;
+      color: #f97316;
+      border: 1px solid #fdba74;
+      margin-left: 6px;
+    }
+    .hit-row {
+      background: #fff8f8;
+    }
+    .hit-badge {
+      color: #dc2626;
+      font-weight: 700;
+    }
+    .status-card {
+      margin-bottom: 12px;
+      border: 1px dashed #e5e7eb;
+      border-radius: 6px;
+      padding: 10px;
+      background: #fcfcfd;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    .logs {
+      margin-top: 12px;
+      max-height: 220px;
+      overflow: auto;
+      border: 1px solid #f0f0f0;
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 13px;
+      background: #fafafa;
+    }
+    .log-item {
+      border-bottom: 1px dashed #e5e7eb;
+      padding: 5px 0;
+    }
+    .log-item:last-child { border-bottom: none; }
+    .empty { color: #999; text-align: center; padding: 20px 0; }
+    @media (max-width: 980px) {
+      .container { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <aside class="panel">
+      <h1 class="title">关键词监控设置</h1>
+      <p class="sub">实时对接微博热搜接口。默认10秒刷新，自动扫描前50名并提示关键词排名。</p>
+      <label for="keywordsInput">关键词（每行一个，别名用 | 分隔）</label>
+      <textarea id="keywordsInput" placeholder="示例：&#10;某品牌|品牌简称&#10;某明星&#10;某活动话题"></textarea>
+      <label for="refreshSec">刷新秒数（建议10）</label>
+      <input id="refreshSec" type="number" min="5" step="1" />
+      <div class="row">
+        <button id="saveBtn" class="secondary">保存</button>
+        <button id="toggleBtn">开始监控</button>
+      </div>
+      <div class="row">
+        <button id="notifyBtn" class="secondary">开启通知</button>
+        <button id="clearLogBtn" class="danger">清空日志</button>
+      </div>
+      <div class="state" id="stateText">状态：未启动</div>
+      <div class="state" id="lastUpdateText">上次更新：--</div>
+      <div class="state" id="hitText">命中：--</div>
+      <div class="logs" id="logWrap"><div class="empty">暂无日志</div></div>
+    </aside>
+
+    <main class="main">
+      <div class="headline">
+        <h2>微博热搜榜（前50）</h2>
+        <a href="https://s.weibo.com/top/summary?cate=realtimehot" target="_blank" rel="noreferrer">打开微博实时热搜</a>
+      </div>
+      <div class="status-card" id="keywordStatus">等待开始监控...</div>
+      <table>
+        <thead>
+          <tr>
+            <th class="rank">排名</th>
+            <th>关键词</th>
+            <th>热度</th>
+            <th>命中</th>
+          </tr>
+        </thead>
+        <tbody id="boardBody">
+          <tr><td colspan="4" class="empty">暂无数据</td></tr>
+        </tbody>
+      </table>
+    </main>
+  </div>
+
+  <script>
+    const STORE_KEY = "wb-monitor-live-v1";
+    const DEFAULT_CONFIG = { refreshSec: 10, keywords: ["示例关键词"], logs: [] };
+
+    const state = {
+      config: loadConfig(),
+      monitoring: false,
+      timer: null,
+      notificationEnabled: false,
+      notified: new Set(),
+      lastRanks: new Map()
+    };
+
+    const el = {
+      keywordsInput: document.getElementById("keywordsInput"),
+      refreshSec: document.getElementById("refreshSec"),
+      saveBtn: document.getElementById("saveBtn"),
+      toggleBtn: document.getElementById("toggleBtn"),
+      notifyBtn: document.getElementById("notifyBtn"),
+      clearLogBtn: document.getElementById("clearLogBtn"),
+      stateText: document.getElementById("stateText"),
+      lastUpdateText: document.getElementById("lastUpdateText"),
+      hitText: document.getElementById("hitText"),
+      logWrap: document.getElementById("logWrap"),
+      keywordStatus: document.getElementById("keywordStatus"),
+      boardBody: document.getElementById("boardBody")
+    };
+
+    function loadConfig() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (!raw) return structuredClone(DEFAULT_CONFIG);
+        const data = JSON.parse(raw);
+        return {
+          refreshSec: Number(data.refreshSec) || 10,
+          keywords: Array.isArray(data.keywords) ? data.keywords : [],
+          logs: Array.isArray(data.logs) ? data.logs.slice(0, 200) : []
+        };
+      } catch {
+        return structuredClone(DEFAULT_CONFIG);
+      }
+    }
+
+    function saveConfig() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state.config));
+    }
+
+    function syncForm() {
+      el.keywordsInput.value = state.config.keywords.join("\n");
+      el.refreshSec.value = state.config.refreshSec;
+      renderLogs();
+    }
+
+    function parseKeywords() {
+      return el.keywordsInput.value
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    function normalizeText(input) {
+      return String(input || "")
+        .toLowerCase()
+        .replace(/[＃#\s]/g, "")
+        .replace(/[^\p{L}\p{N}]/gu, "");
+    }
+
+    function keywordLineToAliases(line) {
+      const aliases = line
+        .split("|")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      return aliases.length ? aliases : [line];
+    }
+
+    function setState(msg, level) {
+      const cls = level === "ok" ? "ok" : level === "warn" ? "warn" : "error";
+      el.stateText.innerHTML = `状态：<span class="${cls}">${escapeHtml(msg)}</span>`;
+    }
+
+    function updateLastTime() {
+      el.lastUpdateText.textContent = `上次更新：${new Date().toLocaleString("zh-CN", { hour12: false })}`;
+    }
+
+    function addLog(msg) {
+      const stamp = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+      state.config.logs.unshift(`[${stamp}] ${msg}`);
+      state.config.logs = state.config.logs.slice(0, 200);
+      saveConfig();
+      renderLogs();
+    }
+
+    function renderLogs() {
+      if (!state.config.logs.length) {
+        el.logWrap.innerHTML = '<div class="empty">暂无日志</div>';
+        return;
+      }
+      el.logWrap.innerHTML = state.config.logs
+        .map((line) => `<div class="log-item">${escapeHtml(line)}</div>`)
+        .join("");
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function isHit(keyword, targets) {
+      const normalizedWord = normalizeText(keyword);
+      return targets.some((line) => {
+        const aliases = keywordLineToAliases(line);
+        return aliases.some((alias) => {
+          const normalizedAlias = normalizeText(alias);
+          return normalizedAlias && (normalizedWord.includes(normalizedAlias) || normalizedAlias.includes(normalizedWord));
+        });
+      });
+    }
+
+    function compareRankAndLog(keyword, rank) {
+      const oldRank = state.lastRanks.get(keyword);
+      if (!oldRank) {
+        addLog(`${keyword} 首次命中，当前第 ${rank} 位`);
+      } else if (oldRank !== rank) {
+        const trend = rank < oldRank ? "上升" : "下降";
+        addLog(`${keyword} 排名${trend}：#${oldRank} -> #${rank}`);
+      }
+      state.lastRanks.set(keyword, rank);
+    }
+
+    function renderKeywordStatus(statusRows) {
+      if (!statusRows.length) {
+        el.keywordStatus.innerHTML = "暂无关键词，请在左侧先填写。";
+        return;
+      }
+      const html = statusRows.map((row) => {
+        const rankText = row.realtimeRank ? `<span class="hit-badge">热搜 #${row.realtimeRank}</span>` : "未上榜";
+        const cityText = row.cityRank ? `，同城 #${row.cityRank}` : "，同城暂无";
+        const aliasText = Array.isArray(row.aliases) && row.aliases.length > 1
+          ? `（别名：${escapeHtml(row.aliases.join(" / "))}）`
+          : "";
+        return `<div>【${escapeHtml(row.keyword)}】${rankText}${cityText}${aliasText}</div>`;
+      }).join("");
+      el.keywordStatus.innerHTML = html;
+    }
+
+    async function fetchHotData(keywords) {
+      const qs = encodeURIComponent(keywords.join(","));
+      const res = await fetch(`/api/weibo/hot?keywords=${qs}`, { method: "GET" });
+      if (!res.ok) throw new Error(`请求失败：${res.status}`);
+      return res.json();
+    }
+
+    function renderBoard(rows, keywords) {
+      if (!Array.isArray(rows) || !rows.length) {
+        el.boardBody.innerHTML = '<tr><td colspan="4" class="empty">未获取到榜单数据</td></tr>';
+        return 0;
+      }
+      let hitCount = 0;
+      el.boardBody.innerHTML = rows.slice(0, 50).map((item) => {
+        const hit = isHit(item.keyword, keywords);
+        if (hit) {
+          hitCount += 1;
+          compareRankAndLog(item.keyword, item.rank);
+          triggerNotification(item.keyword, item.rank);
+        }
+        const link = item.url || `https://s.weibo.com/weibo?q=${encodeURIComponent(item.keyword)}`;
+        return `
+          <tr class="${hit ? "hit-row" : ""}">
+            <td class="rank">${item.rank}</td>
+            <td class="keyword-cell">
+              <a href="${link}" target="_blank" rel="noreferrer">${escapeHtml(item.keyword)}</a>
+              ${item.label ? `<span class="tag">${escapeHtml(item.label)}</span>` : ""}
+            </td>
+            <td>${escapeHtml(item.hot || "--")}</td>
+            <td>${hit ? '<span class="hit-badge">命中</span>' : "-"}</td>
+          </tr>
+        `;
+      }).join("");
+      return hitCount;
+    }
+
+    function triggerNotification(keyword, rank) {
+      if (!state.notificationEnabled || !("Notification" in window)) return;
+      const token = `${keyword}-${rank}`;
+      if (state.notified.has(token)) return;
+      state.notified.add(token);
+      const notification = new Notification("微博关键词命中提醒", {
+        body: `${keyword} 已进入热搜第 ${rank} 位`,
+        tag: keyword
+      });
+      notification.onclick = () => window.focus();
+    }
+
+    async function pullOnce() {
+      const keywords = state.config.keywords;
+      if (!keywords.length) {
+        setState("请先填写关键词", "warn");
+        return;
+      }
+      try {
+        const data = await fetchHotData(keywords);
+        const hitCount = renderBoard(data.realtime || [], keywords);
+        renderKeywordStatus(data.keywordStatus || []);
+        el.hitText.textContent = `命中：热搜 ${hitCount} 个（同城信息依赖接口区域数据）`;
+        updateLastTime();
+        setState("已连接微博实时榜单", "ok");
+      } catch (err) {
+        setState(`拉取失败：${err.message}`, "error");
+      }
+    }
+
+    async function start() {
+      if (state.monitoring) return;
+      const keywords = parseKeywords();
+      if (!keywords.length) {
+        setState("请先填写关键词后再启动", "warn");
+        return;
+      }
+      state.config.keywords = keywords;
+      state.config.refreshSec = Math.max(5, Number(el.refreshSec.value) || 10);
+      saveConfig();
+      state.monitoring = true;
+      el.toggleBtn.textContent = "停止监控";
+      addLog(`开始监控，${state.config.refreshSec}秒刷新`);
+      await pullOnce();
+      state.timer = setInterval(pullOnce, state.config.refreshSec * 1000);
+    }
+
+    function stop() {
+      if (!state.monitoring) return;
+      state.monitoring = false;
+      if (state.timer) clearInterval(state.timer);
+      state.timer = null;
+      el.toggleBtn.textContent = "开始监控";
+      addLog("已停止监控");
+      setState("已停止", "warn");
+    }
+
+    async function enableNotify() {
+      if (!("Notification" in window)) {
+        setState("浏览器不支持通知", "error");
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        state.notificationEnabled = true;
+        el.notifyBtn.textContent = "通知已开启";
+        setState("通知已开启", "ok");
+      } else {
+        setState("通知未授权", "warn");
+      }
+    }
+
+    el.saveBtn.addEventListener("click", () => {
+      const running = state.monitoring;
+      if (running) stop();
+      state.config.keywords = parseKeywords();
+      state.config.refreshSec = Math.max(5, Number(el.refreshSec.value) || 10);
+      saveConfig();
+      addLog("配置已保存");
+      setState(`配置已保存（${state.config.refreshSec}秒）`, "ok");
+      if (running) start();
+    });
+
+    el.toggleBtn.addEventListener("click", () => {
+      if (state.monitoring) stop();
+      else start();
+    });
+    el.notifyBtn.addEventListener("click", enableNotify);
+    el.clearLogBtn.addEventListener("click", () => {
+      state.config.logs = [];
+      saveConfig();
+      renderLogs();
+    });
+
+    syncForm();
+  </script>
+</body>
+</html>
