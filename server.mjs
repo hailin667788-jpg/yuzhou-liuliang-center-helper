@@ -10,6 +10,7 @@ const __dirname = join(__filename, "..");
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || "yuzhou2024";
+const WEIBO_COOKIE = process.env.WEIBO_COOKIE || "";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -76,17 +77,33 @@ function normalizeHotItem(item, index) {
 }
 
 async function fetchWeiboRealtimeHot() {
-  const resp = await fetch("https://weibo.com/ajax/side/hotSearch", {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      Referer: "https://weibo.com/hot/search",
-      Accept: "application/json, text/plain, */*"
-    }
-  });
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    Referer: "https://weibo.com/hot/search",
+    Accept: "application/json, text/plain, */*"
+  };
+  if (WEIBO_COOKIE) headers.Cookie = WEIBO_COOKIE;
+  const resp = await fetch("https://weibo.com/ajax/side/hotSearch", { headers });
   if (!resp.ok) throw new Error(`微博接口异常: ${resp.status}`);
   const data = await resp.json();
   const list = data?.data?.realtime || data?.data?.band_list || [];
   if (!Array.isArray(list) || list.length === 0) throw new Error("微博接口返回为空或结构变化");
+  return list.map((item, idx) => normalizeHotItem(item, idx)).filter(Boolean).slice(0, 50);
+}
+
+async function fetchWeiboCategoryHot(cate, refPath) {
+  if (!WEIBO_COOKIE) return [];
+  const resp = await fetch(`https://weibo.com/ajax/side/hotSearch?cate=${cate}`, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      Referer: `https://weibo.com/hot/${refPath}`,
+      Accept: "application/json, text/plain, */*",
+      Cookie: WEIBO_COOKIE
+    }
+  });
+  if (!resp.ok) return [];
+  const data = await resp.json();
+  const list = data?.data?.realtime || [];
   return list.map((item, idx) => normalizeHotItem(item, idx)).filter(Boolean).slice(0, 50);
 }
 
@@ -153,12 +170,14 @@ function findBestRankByAliases(rows, aliases) {
   return best;
 }
 
-function getKeywordStatus(keywords, realtime, city) {
+function getKeywordStatus(keywords, realtime, entertainment, life, society) {
   return parseKeywordGroups(keywords).map((aliases) => ({
     keyword: aliases[0],
     aliases,
     realtimeRank: findBestRankByAliases(realtime, aliases),
-    cityRank: findBestRankByAliases(city, aliases)
+    entertainmentRank: findBestRankByAliases(entertainment, aliases),
+    lifeRank: findBestRankByAliases(life, aliases),
+    societyRank: findBestRankByAliases(society, aliases)
   }));
 }
 
@@ -210,17 +229,23 @@ const server = createServer(async (req, res) => {
     // Hot search API
     if (url.pathname === "/api/weibo/hot") {
       const keywordsRaw = url.searchParams.get("keywords") || "";
-      const cityName = (url.searchParams.get("city") || "").trim();
       const keywords = keywordsRaw.split(",").map((k) => k.trim()).filter(Boolean);
-      const realtime = await fetchWeiboRealtimeHot();
-      const cityBuilt = buildCityBoardFromRealtime(realtime, cityName);
+
+      const [realtime, entertainment, life, society] = await Promise.all([
+        fetchWeiboRealtimeHot(),
+        fetchWeiboCategoryHot("entertainment", "entertainment"),
+        fetchWeiboCategoryHot("life", "life"),
+        fetchWeiboCategoryHot("society", "society")
+      ]);
+
       return sendJson(res, 200, {
-        source: "https://weibo.com/ajax/side/hotSearch",
         fetchedAt: new Date().toISOString(),
+        hasCookie: !!WEIBO_COOKIE,
         realtime,
-        city: cityBuilt.city,
-        cityMeta: cityBuilt.meta,
-        keywordStatus: getKeywordStatus(keywords, realtime, cityBuilt.city)
+        entertainment,
+        life,
+        society,
+        keywordStatus: getKeywordStatus(keywords, realtime, entertainment, life, society)
       });
     }
 

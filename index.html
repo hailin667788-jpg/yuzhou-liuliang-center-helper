@@ -116,13 +116,6 @@
     .logs { max-height: 210px; overflow: auto; margin-top: 10px; border-top: 1px dashed rgba(112, 130, 255, 0.3); padding-top: 8px; }
     .log-item { font-size: 12px; color: #c8d8ff; padding: 5px 0; border-bottom: 1px dashed rgba(112, 130, 255, 0.2); }
     .empty { text-align: center; padding: 16px; color: #8fa4ff; }
-    .city-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 9px; }
-    .city-tag {
-      font-size: 12px; padding: 4px 10px; border-radius: 999px; cursor: pointer;
-      border: 1px solid rgba(148, 163, 255, 0.4); background: rgba(8, 13, 36, 0.7);
-      color: #c7d6ff; transition: all 0.15s; width: auto; margin-bottom: 0;
-    }
-    .city-tag:hover, .city-tag.active { background: rgba(49, 70, 255, 0.35); border-color: var(--cyan); color: var(--cyan); }
     .logout-btn { background: rgba(80, 20, 40, 0.6); border: 1px solid rgba(255, 78, 199, 0.3); color: #ff9ae7; font-size: 12px; padding: 6px 12px; border-radius: 8px; cursor: pointer; width: auto; font-weight: 500; margin-bottom: 0; }
     .logout-btn:hover { background: rgba(120, 30, 60, 0.7); }
     .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -139,26 +132,7 @@
         <h1 class="title">宇宙流量中心小助手</h1>
         <button class="logout-btn" id="logoutBtn">退出</button>
       </div>
-      <p class="sub">全国热搜 + 同城热议双榜同步，支持任意城市和关键词别名匹配。</p>
-      <label for="cityInput">同城城市（可填任意城市）</label>
-      <input id="cityInput" placeholder="例如：北京、青岛、深圳" />
-      <div class="city-tags" id="cityTags">
-        <button class="city-tag" data-city="北京">北京</button>
-        <button class="city-tag" data-city="上海">上海</button>
-        <button class="city-tag" data-city="广州">广州</button>
-        <button class="city-tag" data-city="深圳">深圳</button>
-        <button class="city-tag" data-city="成都">成都</button>
-        <button class="city-tag" data-city="杭州">杭州</button>
-        <button class="city-tag" data-city="武汉">武汉</button>
-        <button class="city-tag" data-city="西安">西安</button>
-        <button class="city-tag" data-city="南京">南京</button>
-        <button class="city-tag" data-city="重庆">重庆</button>
-        <button class="city-tag" data-city="青岛">青岛</button>
-        <button class="city-tag" data-city="天津">天津</button>
-        <button class="city-tag" data-city="长沙">长沙</button>
-        <button class="city-tag" data-city="郑州">郑州</button>
-        <button class="city-tag" data-city="厦门">厦门</button>
-      </div>
+      <p class="sub">全国热搜 + 文娱 / 生活 / 社会分榜同步，支持关键词别名匹配。</p>
       <label for="keywordsInput">关键词（每行一个，别名用 | 分隔）</label>
       <textarea id="keywordsInput" placeholder="示例：&#10;客户品牌|品牌简称&#10;客户艺人|昵称&#10;活动话题"></textarea>
       <label for="refreshSec">刷新秒数（建议 10）</label>
@@ -192,12 +166,32 @@
         </section>
         <section>
           <div class="headline">
-            <h2 class="panel-title">同城热议前50</h2>
-            <a href="#" id="cityModeText">城市未设置</a>
+            <h2 class="panel-title">文娱榜</h2>
+            <a href="https://weibo.com/hot/entertainment" target="_blank" rel="noreferrer">打开微博文娱榜</a>
           </div>
           <table>
             <thead><tr><th class="rank">排名</th><th>关键词</th><th>热度</th><th>命中</th></tr></thead>
-            <tbody id="cityBody"><tr><td colspan="4" class="empty">暂无数据</td></tr></tbody>
+            <tbody id="entertainmentBody"><tr><td colspan="4" class="empty">暂无数据</td></tr></tbody>
+          </table>
+        </section>
+        <section>
+          <div class="headline">
+            <h2 class="panel-title">生活榜</h2>
+            <a href="https://weibo.com/hot/life" target="_blank" rel="noreferrer">打开微博生活榜</a>
+          </div>
+          <table>
+            <thead><tr><th class="rank">排名</th><th>关键词</th><th>热度</th><th>命中</th></tr></thead>
+            <tbody id="lifeBody"><tr><td colspan="4" class="empty">暂无数据</td></tr></tbody>
+          </table>
+        </section>
+        <section>
+          <div class="headline">
+            <h2 class="panel-title">社会榜</h2>
+            <a href="https://weibo.com/hot/society" target="_blank" rel="noreferrer">打开微博社会榜</a>
+          </div>
+          <table>
+            <thead><tr><th class="rank">排名</th><th>关键词</th><th>热度</th><th>命中</th></tr></thead>
+            <tbody id="societyBody"><tr><td colspan="4" class="empty">暂无数据</td></tr></tbody>
           </table>
         </section>
       </div>
@@ -205,11 +199,10 @@
   </div>
 
   <script>
-    const STORE_KEY = "wb-monitor-cool-v1";
-    const DEFAULT_CONFIG = { refreshSec: 10, city: "北京", keywords: ["示例关键词|别名"], logs: [] };
+    const STORE_KEY = "wb-monitor-cool-v2";
+    const DEFAULT_CONFIG = { refreshSec: 10, keywords: ["示例关键词|别名"], logs: [] };
     const state = { config: loadConfig(), monitoring: false, timer: null, notified: new Set(), notificationEnabled: false, lastRanks: new Map() };
     const el = {
-      cityInput: document.getElementById("cityInput"),
       keywordsInput: document.getElementById("keywordsInput"),
       refreshSec: document.getElementById("refreshSec"),
       saveBtn: document.getElementById("saveBtn"),
@@ -222,8 +215,9 @@
       logWrap: document.getElementById("logWrap"),
       keywordStatus: document.getElementById("keywordStatus"),
       nationalBody: document.getElementById("nationalBody"),
-      cityBody: document.getElementById("cityBody"),
-      cityModeText: document.getElementById("cityModeText")
+      entertainmentBody: document.getElementById("entertainmentBody"),
+      lifeBody: document.getElementById("lifeBody"),
+      societyBody: document.getElementById("societyBody")
     };
 
     function loadConfig() {
@@ -233,7 +227,6 @@
         const cfg = JSON.parse(raw);
         return {
           refreshSec: Number(cfg.refreshSec) || 10,
-          city: String(cfg.city || "北京"),
           keywords: Array.isArray(cfg.keywords) ? cfg.keywords : [],
           logs: Array.isArray(cfg.logs) ? cfg.logs.slice(0, 200) : []
         };
@@ -243,7 +236,6 @@
     }
     function saveConfig() { localStorage.setItem(STORE_KEY, JSON.stringify(state.config)); }
     function syncForm() {
-      el.cityInput.value = state.config.city;
       el.keywordsInput.value = state.config.keywords.join("\n");
       el.refreshSec.value = state.config.refreshSec;
       renderLogs();
@@ -325,49 +317,35 @@
       }).join("");
       return hitCount;
     }
-    function renderKeywordStatus(rows, cityMeta) {
-      if (!rows.length) {
-        el.keywordStatus.innerHTML = "请先设置关键词再启动监控。";
-        return;
-      }
-      const cityModeText = cityMeta?.mode === "related"
-        ? "同城模式：城市强关联"
-        : cityMeta?.mode === "weak-related"
-          ? "同城模式：城市弱关联"
-          : "同城模式：当前无足够同城话题，请更换城市或稍后刷新";
+    function renderKeywordStatus(rows, hasCookie) {
+      if (!rows.length) { el.keywordStatus.innerHTML = "请先设置关键词再启动监控。"; return; }
       const html = rows.map((row) => {
-        const nationalText = row.realtimeRank ? `<span class="hit">全国 #${row.realtimeRank}</span>` : "全国未上榜";
-        const cityText = row.cityRank ? ` / <span class="hit">同城 #${row.cityRank}</span>` : " / 同城未上榜";
-        return `<div>【${escapeHtml(row.keyword)}】${nationalText}${cityText}</div>`;
+        const r = row.realtimeRank ? `<span class="hit">全国 #${row.realtimeRank}</span>` : "全国未上榜";
+        const e = row.entertainmentRank ? ` / <span class="hit">文娱 #${row.entertainmentRank}</span>` : " / 文娱未上榜";
+        const l = row.lifeRank ? ` / <span class="hit">生活 #${row.lifeRank}</span>` : " / 生活未上榜";
+        const s = row.societyRank ? ` / <span class="hit">社会 #${row.societyRank}</span>` : " / 社会未上榜";
+        return `<div>【${escapeHtml(row.keyword)}】${r}${e}${l}${s}</div>`;
       }).join("");
-      el.keywordStatus.innerHTML = `${html}<div style="margin-top:6px;color:#9db0ff;">${escapeHtml(cityModeText)}</div>`;
+      const tip = hasCookie ? "" : `<div style="margin-top:6px;color:#ffce4d;">⚠️ 未配置 WEIBO_COOKIE，文娱/生活/社会榜无数据</div>`;
+      el.keywordStatus.innerHTML = html + tip;
     }
     async function fetchData() {
       const keywords = state.config.keywords;
       const qs = encodeURIComponent(keywords.join(","));
-      const city = encodeURIComponent(state.config.city || "");
-      const res = await fetch(`/api/weibo/hot?keywords=${qs}&city=${city}`);
+      const res = await fetch(`/api/weibo/hot?keywords=${qs}`);
       if (!res.ok) throw new Error(`接口异常 ${res.status}`);
       return res.json();
     }
     async function pullOnce() {
-      if (!state.config.keywords.length) {
-        setState("请先填写关键词", "warn");
-        return;
-      }
+      if (!state.config.keywords.length) { setState("请先填写关键词", "warn"); return; }
       try {
         const data = await fetchData();
-        const nationalHits = renderBoard(el.nationalBody, data.realtime || [], state.config.keywords, "全国热搜");
-        const cityRows = Array.isArray(data.city) ? data.city : [];
-        const cityHits = renderBoard(el.cityBody, cityRows, state.config.keywords, `${state.config.city || "同城"}热议`);
-        renderKeywordStatus(data.keywordStatus || [], data.cityMeta || {});
-        const cityModeLabel = data.cityMeta?.mode === "related"
-          ? "强关联"
-          : data.cityMeta?.mode === "weak-related"
-            ? "弱关联"
-            : "无可用同城话题";
-        el.cityModeText.textContent = `${state.config.city || "未设置城市"} · ${cityModeLabel}`;
-        el.hitText.textContent = `命中：全国 ${nationalHits} 个 / ${state.config.city || "同城"} ${cityHits} 个`;
+        const nHits = renderBoard(el.nationalBody, data.realtime || [], state.config.keywords, "全国热搜");
+        const eHits = renderBoard(el.entertainmentBody, data.entertainment || [], state.config.keywords, "文娱榜");
+        const lHits = renderBoard(el.lifeBody, data.life || [], state.config.keywords, "生活榜");
+        const sHits = renderBoard(el.societyBody, data.society || [], state.config.keywords, "社会榜");
+        renderKeywordStatus(data.keywordStatus || [], data.hasCookie);
+        el.hitText.textContent = `命中：全国 ${nHits} / 文娱 ${eHits} / 生活 ${lHits} / 社会 ${sHits}`;
         el.lastUpdateText.textContent = `上次更新：${new Date().toLocaleString("zh-CN", { hour12: false })}`;
         setState("监控中", "ok");
       } catch (err) {
@@ -382,12 +360,11 @@
         return;
       }
       state.config.keywords = keywords;
-      state.config.city = (el.cityInput.value || "").trim();
       state.config.refreshSec = Math.max(5, Number(el.refreshSec.value) || 10);
       saveConfig();
       state.monitoring = true;
       el.toggleBtn.textContent = "停止监控";
-      addLog(`开始监控：城市=${state.config.city || "未指定"}，间隔=${state.config.refreshSec}s`);
+      addLog(`开始监控，间隔=${state.config.refreshSec}s`);
       await pullOnce();
       state.timer = setInterval(pullOnce, state.config.refreshSec * 1000);
     }
@@ -417,11 +394,9 @@
     el.saveBtn.addEventListener("click", () => {
       const running = state.monitoring;
       if (running) stop();
-      state.config.city = (el.cityInput.value || "").trim();
       state.config.keywords = parseKeywords();
       state.config.refreshSec = Math.max(5, Number(el.refreshSec.value) || 10);
       saveConfig();
-      updateCityTagsActive();
       addLog("配置已保存");
       setState("配置已保存", "ok");
       if (running) start();
@@ -434,26 +409,6 @@
       renderLogs();
     });
 
-    // City quick-select tags
-    function updateCityTagsActive() {
-      const current = (el.cityInput.value || "").trim();
-      document.querySelectorAll(".city-tag").forEach((tag) => {
-        tag.classList.toggle("active", tag.dataset.city === current);
-      });
-    }
-    document.getElementById("cityTags").addEventListener("click", (e) => {
-      const tag = e.target.closest(".city-tag");
-      if (!tag) return;
-      el.cityInput.value = tag.dataset.city;
-      updateCityTagsActive();
-      if (state.monitoring) {
-        state.config.city = tag.dataset.city;
-        saveConfig();
-        pullOnce();
-      }
-    });
-    el.cityInput.addEventListener("input", updateCityTagsActive);
-
     // Logout
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await fetch("/api/logout", { method: "POST" });
@@ -461,7 +416,6 @@
     });
 
     syncForm();
-    updateCityTagsActive();
   </script>
 </body>
 </html>
