@@ -87,6 +87,86 @@ function parseKeywordGroups(rawKeywords) {
     });
 }
 
+const CITY_ALIAS_MAP = {
+  北京: ["北京", "京城", "帝都"],
+  上海: ["上海", "魔都"],
+  广州: ["广州", "羊城"],
+  深圳: ["深圳", "鹏城"],
+  杭州: ["杭州"],
+  南京: ["南京", "金陵"],
+  成都: ["成都", "蓉城"],
+  重庆: ["重庆", "山城"],
+  武汉: ["武汉", "江城"],
+  西安: ["西安", "长安"],
+  青岛: ["青岛", "胶澳"],
+  苏州: ["苏州"],
+  天津: ["天津", "津门"],
+  厦门: ["厦门", "鹭岛"],
+  长沙: ["长沙"],
+  郑州: ["郑州"],
+  济南: ["济南", "泉城"],
+  宁波: ["宁波"],
+  福州: ["福州"],
+  东莞: ["东莞"]
+};
+
+const CITY_CONTEXT_HINTS = [
+  "同城", "本地", "地铁", "交通", "天气", "演唱会", "音乐节",
+  "展览", "开业", "招聘", "学校", "医院", "停电", "停水"
+];
+
+function getCityAliases(cityName) {
+  const trimmed = String(cityName || "").trim();
+  if (!trimmed) return [];
+  return CITY_ALIAS_MAP[trimmed] ? [trimmed, ...CITY_ALIAS_MAP[trimmed]] : [trimmed];
+}
+
+function scoreTopicForCity(keyword, aliases) {
+  const normalizedKeyword = normalizeText(keyword);
+  let score = 0;
+  for (const alias of aliases) {
+    const nAlias = normalizeText(alias);
+    if (!nAlias) continue;
+    if (normalizedKeyword.includes(nAlias)) score += 120;
+  }
+  if (CITY_CONTEXT_HINTS.some((hint) => keyword.includes(hint))) score += 15;
+  return score;
+}
+
+function buildCityBoardFromRealtime(realtime, cityName) {
+  const aliases = getCityAliases(cityName);
+  if (!aliases.length) {
+    return { city: [], meta: { mode: "disabled", city: "" } };
+  }
+
+  const scored = realtime.map((item) => ({
+    ...item,
+    cityScore: scoreTopicForCity(item.keyword, aliases)
+  }));
+
+  const hasStrongMatch = scored.some((item) => item.cityScore >= 100);
+  const ordered = [...scored].sort((a, b) => {
+    if (b.cityScore !== a.cityScore) return b.cityScore - a.cityScore;
+    return a.rank - b.rank;
+  });
+
+  const ranked = ordered.slice(0, 50).map((item, idx) => ({
+    rank: idx + 1,
+    keyword: item.keyword,
+    hot: item.hot,
+    label: item.label,
+    url: item.url
+  }));
+
+  return {
+    city: ranked,
+    meta: {
+      mode: hasStrongMatch ? "related" : "fallback",
+      city: String(cityName)
+    }
+  };
+}
+
 function findBestRankByAliases(rows, aliases) {
   const normalizedAliases = aliases.map((a) => normalizeText(a)).filter(Boolean);
   if (!normalizedAliases.length) return null;
@@ -128,13 +208,15 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === "/api/weibo/hot") {
       const keywordsRaw = url.searchParams.get("keywords") || "";
+      const cityName = (url.searchParams.get("city") || "").trim();
       const keywords = keywordsRaw
         .split(",")
         .map((k) => k.trim())
         .filter(Boolean);
 
       const realtime = await fetchWeiboRealtimeHot();
-      const city = guessCityRankFromRealtime(realtime);
+      const cityBuilt = buildCityBoardFromRealtime(realtime, cityName);
+      const city = cityBuilt.city.length ? cityBuilt.city : guessCityRankFromRealtime(realtime);
       const status = getKeywordStatus(keywords, realtime, city);
 
       return sendJson(res, 200, {
@@ -142,6 +224,7 @@ const server = createServer(async (req, res) => {
         fetchedAt: new Date().toISOString(),
         realtime,
         city,
+        cityMeta: cityBuilt.meta,
         keywordStatus: status
       });
     }
