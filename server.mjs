@@ -87,9 +87,12 @@ async function fetchWeiboRealtimeHot() {
   };
   if (WEIBO_COOKIE) headers.Cookie = WEIBO_COOKIE;
   const resp = await fetch("https://weibo.com/ajax/side/hotSearch", { headers });
+  console.log(`[weibo realtime] status=${resp.status} url=${resp.url}`);
   if (!resp.ok) throw new Error(`微博接口异常: ${resp.status}`);
   const data = await resp.json();
+  console.log(`[weibo realtime] data keys=${Object.keys(data||{}).join(",")} data.data keys=${Object.keys(data?.data||{}).join(",")}`);
   const list = data?.data?.realtime || data?.data?.band_list || [];
+  console.log(`[weibo realtime] list length=${list.length}`);
   if (!Array.isArray(list) || list.length === 0) throw new Error("微博接口返回为空或结构变化");
   return list.map((item, idx) => normalizeHotItem(item, idx)).filter(Boolean).slice(0, 50);
 }
