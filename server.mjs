@@ -230,6 +230,30 @@ const server = createServer(async (req, res) => {
       return res.end(loginHtml);
     }
 
+    // Debug: see raw Weibo category response structure
+    if (url.pathname === "/api/debug/category") {
+      if (!WEIBO_COOKIE) return sendJson(res, 200, { error: "no cookie" });
+      const resp = await fetch("https://weibo.com/ajax/side/hotSearch?cate=entertainment", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          Referer: "https://weibo.com/hot/entertainment",
+          Accept: "application/json, text/plain, */*",
+          Cookie: WEIBO_COOKIE
+        }
+      });
+      const text = await resp.text();
+      let parsed = null;
+      try { parsed = JSON.parse(text); } catch {}
+      return sendJson(res, 200, {
+        status: resp.status,
+        finalUrl: resp.url,
+        topLevelKeys: parsed ? Object.keys(parsed) : null,
+        dataKeys: parsed?.data ? Object.keys(parsed.data) : null,
+        realtimeCount: parsed?.data?.realtime?.length ?? null,
+        rawSnippet: text.slice(0, 300)
+      });
+    }
+
     // Hot search API
     if (url.pathname === "/api/weibo/hot") {
       const keywordsRaw = url.searchParams.get("keywords") || "";
