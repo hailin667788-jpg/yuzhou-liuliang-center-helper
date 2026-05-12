@@ -10,7 +10,7 @@ const __dirname = join(__filename, "..");
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || "yuzhou2024";
-const WEIBO_COOKIE = process.env.WEIBO_COOKIE || "";
+const WEIBO_COOKIE = (process.env.WEIBO_COOKIE || "").replace(/[\r\n\s]+/g, " ").trim();
 
 console.log(`[startup] WEIBO_COOKIE 已配置: ${WEIBO_COOKIE ? "是（长度 " + WEIBO_COOKIE.length + "）" : "否（未设置）"}`);
 console.log(`[startup] ACCESS_PASSWORD 已配置: ${ACCESS_PASSWORD ? "是" : "否"}`);
