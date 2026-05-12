@@ -116,6 +116,16 @@
     .logs { max-height: 210px; overflow: auto; margin-top: 10px; border-top: 1px dashed rgba(112, 130, 255, 0.3); padding-top: 8px; }
     .log-item { font-size: 12px; color: #c8d8ff; padding: 5px 0; border-bottom: 1px dashed rgba(112, 130, 255, 0.2); }
     .empty { text-align: center; padding: 16px; color: #8fa4ff; }
+    .city-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 9px; }
+    .city-tag {
+      font-size: 12px; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+      border: 1px solid rgba(148, 163, 255, 0.4); background: rgba(8, 13, 36, 0.7);
+      color: #c7d6ff; transition: all 0.15s; width: auto; margin-bottom: 0;
+    }
+    .city-tag:hover, .city-tag.active { background: rgba(49, 70, 255, 0.35); border-color: var(--cyan); color: var(--cyan); }
+    .logout-btn { background: rgba(80, 20, 40, 0.6); border: 1px solid rgba(255, 78, 199, 0.3); color: #ff9ae7; font-size: 12px; padding: 6px 12px; border-radius: 8px; cursor: pointer; width: auto; font-weight: 500; margin-bottom: 0; }
+    .logout-btn:hover { background: rgba(120, 30, 60, 0.7); }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     @media (max-width: 1080px) {
       .layout { grid-template-columns: 1fr; }
       .grid { grid-template-columns: 1fr; }
@@ -125,10 +135,30 @@
 <body>
   <div class="layout">
     <aside class="card">
-      <h1 class="title">宇宙流量中心小助手</h1>
-      <p class="sub">酷炫监控版：全国热搜 + 同城热议双榜同步，支持任意城市（如北京/青岛）和关键词别名匹配。</p>
+      <div class="top-bar">
+        <h1 class="title">宇宙流量中心小助手</h1>
+        <button class="logout-btn" id="logoutBtn">退出</button>
+      </div>
+      <p class="sub">全国热搜 + 同城热议双榜同步，支持任意城市和关键词别名匹配。</p>
       <label for="cityInput">同城城市（可填任意城市）</label>
       <input id="cityInput" placeholder="例如：北京、青岛、深圳" />
+      <div class="city-tags" id="cityTags">
+        <button class="city-tag" data-city="北京">北京</button>
+        <button class="city-tag" data-city="上海">上海</button>
+        <button class="city-tag" data-city="广州">广州</button>
+        <button class="city-tag" data-city="深圳">深圳</button>
+        <button class="city-tag" data-city="成都">成都</button>
+        <button class="city-tag" data-city="杭州">杭州</button>
+        <button class="city-tag" data-city="武汉">武汉</button>
+        <button class="city-tag" data-city="西安">西安</button>
+        <button class="city-tag" data-city="南京">南京</button>
+        <button class="city-tag" data-city="重庆">重庆</button>
+        <button class="city-tag" data-city="青岛">青岛</button>
+        <button class="city-tag" data-city="天津">天津</button>
+        <button class="city-tag" data-city="长沙">长沙</button>
+        <button class="city-tag" data-city="郑州">郑州</button>
+        <button class="city-tag" data-city="厦门">厦门</button>
+      </div>
       <label for="keywordsInput">关键词（每行一个，别名用 | 分隔）</label>
       <textarea id="keywordsInput" placeholder="示例：&#10;客户品牌|品牌简称&#10;客户艺人|昵称&#10;活动话题"></textarea>
       <label for="refreshSec">刷新秒数（建议 10）</label>
@@ -391,6 +421,7 @@
       state.config.keywords = parseKeywords();
       state.config.refreshSec = Math.max(5, Number(el.refreshSec.value) || 10);
       saveConfig();
+      updateCityTagsActive();
       addLog("配置已保存");
       setState("配置已保存", "ok");
       if (running) start();
@@ -402,7 +433,35 @@
       saveConfig();
       renderLogs();
     });
+
+    // City quick-select tags
+    function updateCityTagsActive() {
+      const current = (el.cityInput.value || "").trim();
+      document.querySelectorAll(".city-tag").forEach((tag) => {
+        tag.classList.toggle("active", tag.dataset.city === current);
+      });
+    }
+    document.getElementById("cityTags").addEventListener("click", (e) => {
+      const tag = e.target.closest(".city-tag");
+      if (!tag) return;
+      el.cityInput.value = tag.dataset.city;
+      updateCityTagsActive();
+      if (state.monitoring) {
+        state.config.city = tag.dataset.city;
+        saveConfig();
+        pullOnce();
+      }
+    });
+    el.cityInput.addEventListener("input", updateCityTagsActive);
+
+    // Logout
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await fetch("/api/logout", { method: "POST" });
+      window.location.reload();
+    });
+
     syncForm();
+    updateCityTagsActive();
   </script>
 </body>
 </html>

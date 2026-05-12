@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>宇宙流量中心小助手 · 登录</title>
+  <style>
+    :root { --bg: #060b1f; --card: rgba(18,26,56,0.92); --line: rgba(104,121,255,0.35); --text: #e8eeff; --muted: #9db0ff; --cyan: #38f8ff; --violet: #9b7bff; --pink: #ff4ec7; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(56,248,255,0.12), transparent 34%),
+        radial-gradient(circle at 80% 30%, rgba(155,123,255,0.16), transparent 36%),
+        radial-gradient(circle at 50% 90%, rgba(255,78,199,0.12), transparent 40%),
+        linear-gradient(140deg, #030614, #0b1030 60%, #070a1f);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.04);
+      backdrop-filter: blur(12px);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 380px;
+    }
+    .logo {
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--cyan), var(--pink));
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      margin-bottom: 6px;
+    }
+    .sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+    label { font-size: 12px; color: #c7d6ff; display: block; margin-bottom: 6px; }
+    input[type="password"] {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(148,163,255,0.35);
+      background: rgba(8,13,36,0.9);
+      color: var(--text);
+      padding: 12px 14px;
+      font-size: 15px;
+      margin-bottom: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="password"]:focus { border-color: var(--cyan); }
+    button {
+      width: 100%;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 12px;
+      background: linear-gradient(135deg, #3146ff, #ad44ff);
+      color: #fff;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.88; }
+    .err { font-size: 13px; color: #ff7f99; margin-top: 12px; min-height: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">宇宙流量中心小助手</div>
+    <p class="sub">请输入团队访问密码</p>
+    <label for="pwd">访问密码</label>
+    <input type="password" id="pwd" placeholder="请输入密码" autofocus />
+    <button id="loginBtn">进入</button>
+    <div class="err" id="errMsg"></div>
+  </div>
+  <script>
+    const btn = document.getElementById("loginBtn");
+    const pwd = document.getElementById("pwd");
+    const err = document.getElementById("errMsg");
+
+    async function doLogin() {
+      const password = pwd.value.trim();
+      if (!password) { err.textContent = "请输入密码"; return; }
+      btn.disabled = true;
+      btn.textContent = "验证中...";
+      err.textContent = "";
+      try {
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password })
+        });
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          err.textContent = data.error || "密码错误，请重试";
+          btn.disabled = false;
+          btn.textContent = "进入";
+          pwd.select();
+        }
+      } catch {
+        err.textContent = "网络错误，请重试";
+        btn.disabled = false;
+        btn.textContent = "进入";
+      }
+    }
+
+    btn.addEventListener("click", doLogin);
+    pwd.addEventListener("keydown", (e) => { if (e.key === "Enter") doLogin(); });
+  </script>
+</body>
+</html>
