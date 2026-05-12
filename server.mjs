@@ -107,9 +107,12 @@ async function fetchWeiboCategoryHot(cate, refPath) {
       Cookie: WEIBO_COOKIE
     }
   });
-  if (!resp.ok) return [];
+  console.log(`[weibo ${cate}] status=${resp.status} url=${resp.url}`);
+  if (!resp.ok) { console.log(`[weibo ${cate}] non-ok response`); return []; }
   const data = await resp.json();
+  console.log(`[weibo ${cate}] ok=${data?.ok} data keys=${Object.keys(data?.data||{}).join(",")}`);
   const list = data?.data?.realtime || [];
+  console.log(`[weibo ${cate}] list length=${list.length}`);
   return list.map((item, idx) => normalizeHotItem(item, idx)).filter(Boolean).slice(0, 50);
 }
 
