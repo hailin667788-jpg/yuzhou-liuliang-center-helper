@@ -234,11 +234,12 @@ const server = createServer(async (req, res) => {
       const keywordsRaw = url.searchParams.get("keywords") || "";
       const keywords = keywordsRaw.split(",").map((k) => k.trim()).filter(Boolean);
 
+      const safe = (fn) => fn.catch((e) => { console.error("[fetch error]", e.message); return []; });
       const [realtime, entertainment, life, society] = await Promise.all([
-        fetchWeiboRealtimeHot(),
-        fetchWeiboCategoryHot("entertainment", "entertainment"),
-        fetchWeiboCategoryHot("life", "life"),
-        fetchWeiboCategoryHot("society", "society")
+        safe(fetchWeiboRealtimeHot()),
+        safe(fetchWeiboCategoryHot("entertainment", "entertainment")),
+        safe(fetchWeiboCategoryHot("life", "life")),
+        safe(fetchWeiboCategoryHot("society", "society"))
       ]);
 
       return sendJson(res, 200, {
