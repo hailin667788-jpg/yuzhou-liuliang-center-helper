@@ -98,21 +98,16 @@ async function fetchWeiboRealtimeHot() {
 }
 
 async function fetchWeiboCategoryHot(cate, refPath) {
-  if (!WEIBO_COOKIE) return [];
   const resp = await fetch(`https://weibo.com/ajax/side/hotSearch?cate=${cate}`, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       Referer: `https://weibo.com/hot/${refPath}`,
-      Accept: "application/json, text/plain, */*",
-      Cookie: WEIBO_COOKIE
+      Accept: "application/json, text/plain, */*"
     }
   });
-  console.log(`[weibo ${cate}] status=${resp.status} url=${resp.url}`);
-  if (!resp.ok) { console.log(`[weibo ${cate}] non-ok response`); return []; }
+  if (!resp.ok) return [];
   const data = await resp.json();
-  console.log(`[weibo ${cate}] ok=${data?.ok} data keys=${Object.keys(data?.data||{}).join(",")}`);
   const list = data?.data?.realtime || [];
-  console.log(`[weibo ${cate}] list length=${list.length}`);
   return list.map((item, idx) => normalizeHotItem(item, idx)).filter(Boolean).slice(0, 50);
 }
 
