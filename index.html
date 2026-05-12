@@ -300,7 +300,11 @@
         el.keywordStatus.innerHTML = "请先设置关键词再启动监控。";
         return;
       }
-      const cityModeText = cityMeta?.mode === "related" ? "同城模式：城市关联热议" : "同城模式：热搜回退";
+      const cityModeText = cityMeta?.mode === "related"
+        ? "同城模式：城市强关联"
+        : cityMeta?.mode === "weak-related"
+          ? "同城模式：城市弱关联"
+          : "同城模式：当前无足够同城话题，请更换城市或稍后刷新";
       const html = rows.map((row) => {
         const nationalText = row.realtimeRank ? `<span class="hit">全国 #${row.realtimeRank}</span>` : "全国未上榜";
         const cityText = row.cityRank ? ` / <span class="hit">同城 #${row.cityRank}</span>` : " / 同城未上榜";
@@ -324,9 +328,15 @@
       try {
         const data = await fetchData();
         const nationalHits = renderBoard(el.nationalBody, data.realtime || [], state.config.keywords, "全国热搜");
-        const cityHits = renderBoard(el.cityBody, data.city || [], state.config.keywords, `${state.config.city || "同城"}热议`);
+        const cityRows = Array.isArray(data.city) ? data.city : [];
+        const cityHits = renderBoard(el.cityBody, cityRows, state.config.keywords, `${state.config.city || "同城"}热议`);
         renderKeywordStatus(data.keywordStatus || [], data.cityMeta || {});
-        el.cityModeText.textContent = `${state.config.city || "未设置城市"} · ${data.cityMeta?.mode === "related" ? "关联热议" : "回退模式"}`;
+        const cityModeLabel = data.cityMeta?.mode === "related"
+          ? "强关联"
+          : data.cityMeta?.mode === "weak-related"
+            ? "弱关联"
+            : "无可用同城话题";
+        el.cityModeText.textContent = `${state.config.city || "未设置城市"} · ${cityModeLabel}`;
         el.hitText.textContent = `命中：全国 ${nationalHits} 个 / ${state.config.city || "同城"} ${cityHits} 个`;
         el.lastUpdateText.textContent = `上次更新：${new Date().toLocaleString("zh-CN", { hour12: false })}`;
         setState("监控中", "ok");

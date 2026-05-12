@@ -99,12 +99,19 @@ const CITY_ALIAS_MAP = {
   武汉: ["武汉", "江城"],
   西安: ["西安", "长安"],
   青岛: ["青岛", "胶澳"],
+  济南: ["济南", "泉城", "山东"],
+  烟台: ["烟台", "山东"],
+  威海: ["威海", "山东"],
+  潍坊: ["潍坊", "山东"],
+  临沂: ["临沂", "山东"],
+  淄博: ["淄博", "山东"],
+  北京市: ["北京", "京城", "帝都"],
+  青岛市: ["青岛", "胶澳", "山东"],
   苏州: ["苏州"],
   天津: ["天津", "津门"],
   厦门: ["厦门", "鹭岛"],
   长沙: ["长沙"],
   郑州: ["郑州"],
-  济南: ["济南", "泉城"],
   宁波: ["宁波"],
   福州: ["福州"],
   东莞: ["东莞"]
@@ -145,7 +152,9 @@ function buildCityBoardFromRealtime(realtime, cityName) {
   }));
 
   const hasStrongMatch = scored.some((item) => item.cityScore >= 100);
-  const ordered = [...scored].sort((a, b) => {
+  const ordered = scored
+    .filter((item) => item.cityScore > 0)
+    .sort((a, b) => {
     if (b.cityScore !== a.cityScore) return b.cityScore - a.cityScore;
     return a.rank - b.rank;
   });
@@ -161,7 +170,7 @@ function buildCityBoardFromRealtime(realtime, cityName) {
   return {
     city: ranked,
     meta: {
-      mode: hasStrongMatch ? "related" : "fallback",
+      mode: hasStrongMatch ? "related" : ranked.length ? "weak-related" : "no-city-data",
       city: String(cityName)
     }
   };
@@ -216,7 +225,7 @@ const server = createServer(async (req, res) => {
 
       const realtime = await fetchWeiboRealtimeHot();
       const cityBuilt = buildCityBoardFromRealtime(realtime, cityName);
-      const city = cityBuilt.city.length ? cityBuilt.city : guessCityRankFromRealtime(realtime);
+      const city = cityBuilt.city;
       const status = getKeywordStatus(keywords, realtime, city);
 
       return sendJson(res, 200, {
