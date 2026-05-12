@@ -12,6 +12,9 @@ const HOST = process.env.HOST || "0.0.0.0";
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || "yuzhou2024";
 const WEIBO_COOKIE = process.env.WEIBO_COOKIE || "";
 
+console.log(`[startup] WEIBO_COOKIE 已配置: ${WEIBO_COOKIE ? "是（长度 " + WEIBO_COOKIE.length + "）" : "否（未设置）"}`);
+console.log(`[startup] ACCESS_PASSWORD 已配置: ${ACCESS_PASSWORD ? "是" : "否"}`);
+
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
