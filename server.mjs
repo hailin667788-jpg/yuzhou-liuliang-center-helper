@@ -85,7 +85,7 @@ async function fetchWeiboRealtimeHot() {
     Referer: "https://weibo.com/hot/search",
     Accept: "application/json, text/plain, */*"
   };
-  if (WEIBO_COOKIE) headers.Cookie = WEIBO_COOKIE;
+  // 全国热搜不需要 Cookie，加了反而会导致微博返回不同结构
   const resp = await fetch("https://weibo.com/ajax/side/hotSearch", { headers });
   console.log(`[weibo realtime] status=${resp.status} url=${resp.url}`);
   if (!resp.ok) throw new Error(`微博接口异常: ${resp.status}`);
