@@ -4,3 +4,4 @@ cloudflared
 cloudflared.tgz
 .cursor/
 *.log
+.weibo_cookie

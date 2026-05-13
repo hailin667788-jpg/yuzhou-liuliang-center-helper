@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { networkInterfaces } from "node:os";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,12 +7,21 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, "..");
+const COOKIE_FILE = join(__dirname, ".weibo_cookie");
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || "yuzhou2024";
-const WEIBO_COOKIE = (process.env.WEIBO_COOKIE || "").replace(/[\r\n\s]+/g, " ").trim();
 
-console.log(`[startup] WEIBO_COOKIE 已配置: ${WEIBO_COOKIE ? "是（长度 " + WEIBO_COOKIE.length + "）" : "否（未设置）"}`);
+// 优先用环境变量，其次读本地文件
+let weiboCookie = (process.env.WEIBO_COOKIE || "").replace(/[\r\n\s]+/g, " ").trim();
+if (!weiboCookie) {
+  try {
+    weiboCookie = (await readFile(COOKIE_FILE, "utf8")).replace(/[\r\n]+/g, " ").trim();
+    if (weiboCookie) console.log(`[startup] 从 .weibo_cookie 文件读取 Cookie（长度 ${weiboCookie.length}）`);
+  } catch { /* 文件不存在时忽略 */ }
+}
+
+console.log(`[startup] WEIBO_COOKIE 已配置: ${weiboCookie ? "是（长度 " + weiboCookie.length + "）" : "否（未设置）"}`);
 console.log(`[startup] ACCESS_PASSWORD 已配置: ${ACCESS_PASSWORD ? "是" : "否"}`);
 
 const MIME = {
@@ -98,13 +107,14 @@ async function fetchWeiboRealtimeHot() {
 }
 
 async function fetchWeiboCategoryHot(cate, refPath) {
-  const resp = await fetch(`https://weibo.com/ajax/side/hotSearch?cate=${cate}`, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      Referer: `https://weibo.com/hot/${refPath}`,
-      Accept: "application/json, text/plain, */*"
-    }
-  });
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    Referer: `https://weibo.com/hot/${refPath}`,
+    Accept: "application/json, text/plain, */*"
+  };
+  if (weiboCookie) headers.Cookie = weiboCookie;
+  const resp = await fetch(`https://weibo.com/ajax/side/hotSearch?cate=${cate}`, { headers });
+  console.log(`[weibo ${cate}] status=${resp.status} hasCookie=${!!weiboCookie}`);
   if (!resp.ok) return [];
   const data = await resp.json();
   const list = data?.data?.realtime || [];
@@ -232,13 +242,13 @@ const server = createServer(async (req, res) => {
 
     // Debug: see raw Weibo category response structure
     if (url.pathname === "/api/debug/category") {
-      if (!WEIBO_COOKIE) return sendJson(res, 200, { error: "no cookie" });
+      if (!weiboCookie) return sendJson(res, 200, { error: "no cookie" });
       const resp = await fetch("https://weibo.com/ajax/side/hotSearch?cate=entertainment", {
         headers: {
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
           Referer: "https://weibo.com/hot/entertainment",
           Accept: "application/json, text/plain, */*",
-          Cookie: WEIBO_COOKIE
+          Cookie: weiboCookie
         }
       });
       const text = await resp.text();
@@ -252,6 +262,27 @@ const server = createServer(async (req, res) => {
         realtimeCount: parsed?.data?.realtime?.length ?? null,
         rawSnippet: text.slice(0, 300)
       });
+    }
+
+    // Cookie config — set/clear Weibo cookie at runtime
+    if (url.pathname === "/api/config/cookie" && req.method === "POST") {
+      const body = await readBody(req);
+      let cookie = "";
+      try { cookie = JSON.parse(body).cookie || ""; } catch { cookie = ""; }
+      weiboCookie = cookie.replace(/[\r\n]+/g, " ").trim();
+      // 持久化到文件，重启后自动读取
+      try {
+        await writeFile(COOKIE_FILE, weiboCookie, "utf8");
+      } catch (e) {
+        console.error("[config] 写入 .weibo_cookie 失败:", e.message);
+      }
+      console.log(`[config] weiboCookie updated, length=${weiboCookie.length}`);
+      return sendJson(res, 200, { ok: true, hasCookie: !!weiboCookie });
+    }
+
+    // Cookie status
+    if (url.pathname === "/api/config/cookie" && req.method === "GET") {
+      return sendJson(res, 200, { hasCookie: !!weiboCookie, cookieLength: weiboCookie.length });
     }
 
     // Hot search API
@@ -269,7 +300,7 @@ const server = createServer(async (req, res) => {
 
       return sendJson(res, 200, {
         fetchedAt: new Date().toISOString(),
-        hasCookie: !!WEIBO_COOKIE,
+        hasCookie: !!weiboCookie,
         realtime,
         entertainment,
         life,

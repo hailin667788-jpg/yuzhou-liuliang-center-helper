@@ -119,6 +119,12 @@
     .logout-btn { background: rgba(80, 20, 40, 0.6); border: 1px solid rgba(255, 78, 199, 0.3); color: #ff9ae7; font-size: 12px; padding: 6px 12px; border-radius: 8px; cursor: pointer; width: auto; font-weight: 500; margin-bottom: 0; }
     .logout-btn:hover { background: rgba(120, 30, 60, 0.7); }
     .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    details.cookie-section { margin-bottom: 9px; border: 1px dashed rgba(148,163,255,0.28); border-radius: 10px; padding: 8px 10px; }
+    details.cookie-section summary { cursor: pointer; font-size: 12px; color: var(--muted); user-select: none; list-style: none; }
+    details.cookie-section summary::before { content: "▶ "; font-size: 10px; }
+    details[open].cookie-section summary::before { content: "▼ "; }
+    details.cookie-section summary:hover { color: #c7d6ff; }
+    .cookie-body { margin-top: 8px; }
     @media (max-width: 1080px) {
       .layout { grid-template-columns: 1fr; }
       .grid { grid-template-columns: 1fr; }
@@ -145,6 +151,18 @@
         <button id="notifyBtn" class="secondary">开启通知</button>
         <button id="clearLogBtn" class="danger">清空日志</button>
       </div>
+      <details class="cookie-section">
+        <summary>微博 Cookie 配置</summary>
+        <div class="cookie-body">
+          <div class="meta" id="cookieStatus" style="margin-bottom:7px;">Cookie 状态：检查中...</div>
+          <label for="cookieInput">粘贴微博 Cookie（登录后从浏览器开发者工具复制）</label>
+          <textarea id="cookieInput" placeholder="SUB=xxx; SUBP=xxx; ..." style="min-height:60px;font-size:11px;font-family:monospace;"></textarea>
+          <div class="row">
+            <button id="saveCookieBtn" class="secondary">保存 Cookie</button>
+            <button id="clearCookieBtn" class="danger">清除 Cookie</button>
+          </div>
+        </div>
+      </details>
       <div class="meta" id="stateText">状态：未启动</div>
       <div class="meta" id="lastUpdateText">上次更新：--</div>
       <div class="meta" id="hitText">命中：--</div>
@@ -217,7 +235,11 @@
       nationalBody: document.getElementById("nationalBody"),
       entertainmentBody: document.getElementById("entertainmentBody"),
       lifeBody: document.getElementById("lifeBody"),
-      societyBody: document.getElementById("societyBody")
+      societyBody: document.getElementById("societyBody"),
+      cookieStatus: document.getElementById("cookieStatus"),
+      cookieInput: document.getElementById("cookieInput"),
+      saveCookieBtn: document.getElementById("saveCookieBtn"),
+      clearCookieBtn: document.getElementById("clearCookieBtn")
     };
 
     function loadConfig() {
@@ -414,6 +436,46 @@
       await fetch("/api/logout", { method: "POST" });
       window.location.reload();
     });
+
+    // Cookie management
+    async function loadCookieStatus() {
+      try {
+        const res = await fetch("/api/config/cookie");
+        const data = await res.json();
+        el.cookieStatus.textContent = data.hasCookie
+          ? `Cookie 状态：已配置（${data.cookieLength} 字符）`
+          : "Cookie 状态：未配置 — 文娱/生活/社会榜无数据";
+        el.cookieStatus.className = "meta " + (data.hasCookie ? "ok" : "warn");
+      } catch {
+        el.cookieStatus.textContent = "Cookie 状态：检查失败";
+        el.cookieStatus.className = "meta error";
+      }
+    }
+    async function saveCookie(cookie) {
+      el.saveCookieBtn.disabled = true;
+      el.clearCookieBtn.disabled = true;
+      try {
+        const res = await fetch("/api/config/cookie", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cookie })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          el.cookieInput.value = "";
+          await loadCookieStatus();
+          addLog(cookie ? "微博 Cookie 已更新" : "微博 Cookie 已清除");
+        }
+      } catch {
+        el.cookieStatus.textContent = "Cookie 状态：保存失败";
+        el.cookieStatus.className = "meta error";
+      }
+      el.saveCookieBtn.disabled = false;
+      el.clearCookieBtn.disabled = false;
+    }
+    el.saveCookieBtn.addEventListener("click", () => saveCookie(el.cookieInput.value.trim()));
+    el.clearCookieBtn.addEventListener("click", () => { if (confirm("确认清除 Cookie？")) saveCookie(""); });
+    loadCookieStatus();
 
     syncForm();
   </script>
