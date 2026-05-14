@@ -309,7 +309,7 @@ const server = createServer(async (req, res) => {
         safe(fetchWeiboRealtimeHot()),
         safe(fetchWeiboCategoryHot("entertainment", "entertainment")),
         safe(fetchWeiboCategoryHot("life", "life")),
-        safe(fetchWeiboCategoryHot("society", "society"))
+        safe(fetchWeiboCategoryHot("social", "social"))
       ]);
 
       return sendJson(res, 200, {
