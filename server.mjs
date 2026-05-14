@@ -113,11 +113,11 @@ async function fetchWeiboCategoryHot(cate, refPath) {
     Accept: "application/json, text/plain, */*"
   };
   if (weiboCookie) headers.Cookie = weiboCookie;
-  const resp = await fetch(`https://weibo.com/ajax/side/hotSearch?cate=${cate}`, { headers });
+  const resp = await fetch(`https://weibo.com/ajax/statuses/${cate}`, { headers });
   console.log(`[weibo ${cate}] status=${resp.status} hasCookie=${!!weiboCookie}`);
   if (!resp.ok) return [];
   const data = await resp.json();
-  const list = data?.data?.realtime || [];
+  const list = data?.data?.band_list || data?.data?.realtime || [];
   return list.map((item, idx) => normalizeHotItem(item, idx)).filter(Boolean).slice(0, 50);
 }
 
