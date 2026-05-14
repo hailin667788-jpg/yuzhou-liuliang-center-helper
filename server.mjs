@@ -109,15 +109,29 @@ async function fetchWeiboRealtimeHot() {
 async function fetchWeiboCategoryHot(cate, refPath) {
   const headers = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    Referer: `https://weibo.com/hot/${refPath}`,
-    Accept: "application/json, text/plain, */*"
+    "Referer": `https://weibo.com/hot/${refPath}`,
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"macOS"',
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "X-Requested-With": "XMLHttpRequest",
+    "Client-Version": "v2.47.42",
+    "Server-Version": "v2025.10.30.1"
   };
   if (weiboCookie) headers.Cookie = weiboCookie;
-  const resp = await fetch(`https://weibo.com/ajax/statuses/${cate}`, { headers });
-  console.log(`[weibo ${cate}] status=${resp.status} hasCookie=${!!weiboCookie}`);
-  if (!resp.ok) return [];
-  const data = await resp.json();
+  const url = `https://weibo.com/ajax/statuses/${cate}`;
+  const resp = await fetch(url, { headers });
+  const text = await resp.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch {}
   const list = data?.data?.band_list || data?.data?.realtime || [];
+  console.log(`[weibo ${cate}] status=${resp.status} hasCookie=${!!weiboCookie} bodyLen=${text.length} listLen=${list.length} snippet=${text.slice(0, 200).replace(/\s+/g, " ")}`);
+  if (!resp.ok || !Array.isArray(list)) return [];
   return list.map((item, idx) => normalizeHotItem(item, idx)).filter(Boolean).slice(0, 50);
 }
 
