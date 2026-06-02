@@ -125,6 +125,16 @@
     details[open].cookie-section summary::before { content: "▼ "; }
     details.cookie-section summary:hover { color: #c7d6ff; }
     .cookie-body { margin-top: 8px; }
+    .cookie-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; padding: 3px 8px; border-radius: 999px;
+      margin-left: 8px; vertical-align: middle; cursor: pointer;
+      border: 1px solid rgba(148,163,255,0.4); white-space: nowrap;
+    }
+    .cookie-badge.ok { background: rgba(77,255,158,0.15); color: var(--good); border-color: rgba(77,255,158,0.5); }
+    .cookie-badge.warn { background: rgba(255,206,77,0.15); color: var(--warn); border-color: rgba(255,206,77,0.5); }
+    .cookie-badge.bad { background: rgba(255,127,153,0.18); color: #ff7f99; border-color: rgba(255,127,153,0.6); animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
     @media (max-width: 1080px) {
       .layout { grid-template-columns: 1fr; }
       .grid { grid-template-columns: 1fr; }
@@ -135,7 +145,7 @@
   <div class="layout">
     <aside class="card">
       <div class="top-bar">
-        <h1 class="title">宇宙流量中心小助手</h1>
+        <h1 class="title">宇宙流量中心小助手 <span id="cookieBadge" class="cookie-badge warn" title="点击展开 Cookie 配置">● 检查中</span></h1>
         <button class="logout-btn" id="logoutBtn">退出</button>
       </div>
       <p class="sub">全国热搜 + 文娱 / 生活 / 社会分榜同步，支持关键词别名匹配。</p>
@@ -239,8 +249,22 @@
       cookieStatus: document.getElementById("cookieStatus"),
       cookieInput: document.getElementById("cookieInput"),
       saveCookieBtn: document.getElementById("saveCookieBtn"),
-      clearCookieBtn: document.getElementById("clearCookieBtn")
+      clearCookieBtn: document.getElementById("clearCookieBtn"),
+      cookieBadge: document.getElementById("cookieBadge"),
+      cookieSection: document.querySelector("details.cookie-section")
     };
+
+    function setCookieBadge(level, text) {
+      if (!el.cookieBadge) return;
+      el.cookieBadge.className = "cookie-badge " + level;
+      el.cookieBadge.textContent = "● " + text;
+    }
+    el.cookieBadge?.addEventListener("click", () => {
+      if (el.cookieSection) {
+        el.cookieSection.open = true;
+        el.cookieSection.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
 
     function loadConfig() {
       try {
@@ -375,6 +399,11 @@
         if (data.cookieExpired) {
           el.cookieStatus.textContent = "Cookie 状态：已失效（微博服务器拒绝），请重新获取并保存";
           el.cookieStatus.className = "meta error";
+          setCookieBadge("bad", "Cookie 失效");
+        } else if (!data.hasCookie) {
+          setCookieBadge("warn", "Cookie 未配置");
+        } else {
+          setCookieBadge("ok", "Cookie 正常");
         }
         el.hitText.textContent = `命中：全国 ${nHits} / 文娱 ${eHits} / 生活 ${lHits} / 社会 ${sHits}`;
         el.lastUpdateText.textContent = `上次更新：${new Date().toLocaleString("zh-CN", { hour12: false })}`;
@@ -455,9 +484,11 @@
           ? `Cookie 状态：已配置（${data.cookieLength} 字符）`
           : "Cookie 状态：未配置 — 文娱/生活/社会榜无数据";
         el.cookieStatus.className = "meta " + (data.hasCookie ? "ok" : "warn");
+        setCookieBadge(data.hasCookie ? "ok" : "warn", data.hasCookie ? "Cookie 已配置" : "Cookie 未配置");
       } catch {
         el.cookieStatus.textContent = "Cookie 状态：检查失败";
         el.cookieStatus.className = "meta error";
+        setCookieBadge("bad", "Cookie 检查失败");
       }
     }
     async function saveCookie(cookie) {
