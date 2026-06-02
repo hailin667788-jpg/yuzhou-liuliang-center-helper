@@ -258,6 +258,20 @@ const server = createServer(async (req, res) => {
 
     // Auth check for all other routes
     if (!isValidSession(token)) {
+      // 微信内置浏览器（公众号菜单/分享卡片打开）自动免密，签发会话 cookie
+      const ua = String(req.headers["user-agent"] || "");
+      const isWeChat = /MicroMessenger/i.test(ua);
+      if (isWeChat) {
+        const newToken = createSession();
+        const setCookie = `wb_session=${newToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`;
+        if (url.pathname.startsWith("/api/")) {
+          res.writeHead(401, { "Content-Type": "application/json; charset=utf-8", "Set-Cookie": setCookie });
+          return res.end(JSON.stringify({ error: "请重试", wechatAutoLogin: true }));
+        }
+        // 给页面种 cookie 并重定向到自身，让后续请求带上 session
+        res.writeHead(302, { "Set-Cookie": setCookie, Location: url.pathname + url.search });
+        return res.end();
+      }
       if (url.pathname.startsWith("/api/")) return sendJson(res, 401, { error: "未登录" });
       // Serve login page for browser requests
       const loginHtml = await readFile(join(__dirname, "login.html"));
