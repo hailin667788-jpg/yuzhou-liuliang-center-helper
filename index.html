@@ -339,7 +339,7 @@
       }).join("");
       return hitCount;
     }
-    function renderKeywordStatus(rows, hasCookie) {
+    function renderKeywordStatus(rows, hasCookie, cookieExpired) {
       if (!rows.length) { el.keywordStatus.innerHTML = "请先设置关键词再启动监控。"; return; }
       const html = rows.map((row) => {
         const r = row.realtimeRank ? `<span class="hit">全国 #${row.realtimeRank}</span>` : "全国未上榜";
@@ -348,7 +348,12 @@
         const s = row.societyRank ? ` / <span class="hit">社会 #${row.societyRank}</span>` : " / 社会未上榜";
         return `<div>【${escapeHtml(row.keyword)}】${r}${e}${l}${s}</div>`;
       }).join("");
-      const tip = hasCookie ? "" : `<div style="margin-top:6px;color:#ffce4d;">⚠️ 未配置 WEIBO_COOKIE，文娱/生活/社会榜无数据</div>`;
+      let tip = "";
+      if (cookieExpired) {
+        tip = `<div style="margin-top:6px;color:#ff7f99;">❌ WEIBO_COOKIE 已失效（微博服务器拒绝），请重新登录微博网页版抓取最新 Cookie 后在下方"微博 Cookie"框粘贴保存</div>`;
+      } else if (!hasCookie) {
+        tip = `<div style="margin-top:6px;color:#ffce4d;">⚠️ 未配置 WEIBO_COOKIE，文娱/生活/社会榜无数据</div>`;
+      }
       el.keywordStatus.innerHTML = html + tip;
     }
     async function fetchData() {
@@ -366,7 +371,11 @@
         const eHits = renderBoard(el.entertainmentBody, data.entertainment || [], state.config.keywords, "文娱榜");
         const lHits = renderBoard(el.lifeBody, data.life || [], state.config.keywords, "生活榜");
         const sHits = renderBoard(el.societyBody, data.society || [], state.config.keywords, "社会榜");
-        renderKeywordStatus(data.keywordStatus || [], data.hasCookie);
+        renderKeywordStatus(data.keywordStatus || [], data.hasCookie, data.cookieExpired);
+        if (data.cookieExpired) {
+          el.cookieStatus.textContent = "Cookie 状态：已失效（微博服务器拒绝），请重新获取并保存";
+          el.cookieStatus.className = "meta error";
+        }
         el.hitText.textContent = `命中：全国 ${nHits} / 文娱 ${eHits} / 生活 ${lHits} / 社会 ${sHits}`;
         el.lastUpdateText.textContent = `上次更新：${new Date().toLocaleString("zh-CN", { hour12: false })}`;
         setState("监控中", "ok");

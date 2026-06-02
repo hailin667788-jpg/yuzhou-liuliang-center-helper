@@ -62,7 +62,11 @@ function parseCookies(req) {
 }
 
 function sendJson(res, status, data) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store, no-cache, must-revalidate",
+    "Pragma": "no-cache"
+  });
   res.end(JSON.stringify(data));
 }
 
@@ -130,7 +134,14 @@ async function fetchWeiboCategoryHot(cate, refPath) {
   let data = null;
   try { data = JSON.parse(text); } catch {}
   const list = data?.data?.band_list || data?.data?.realtime || [];
-  console.log(`[weibo ${cate}] status=${resp.status} hasCookie=${!!weiboCookie} bodyLen=${text.length} listLen=${list.length} snippet=${text.slice(0, 200).replace(/\s+/g, " ")}`);
+  // 微博登录态失效的典型响应：{"ok":-100,"url":"https://weibo.com/login.php?..."}
+  const cookieExpired = data?.ok === -100 || /login\.php/i.test(data?.url || "");
+  console.log(`[weibo ${cate}] status=${resp.status} hasCookie=${!!weiboCookie} ok=${data?.ok} expired=${cookieExpired} bodyLen=${text.length} listLen=${list.length} snippet=${text.slice(0, 200).replace(/\s+/g, " ")}`);
+  if (cookieExpired) {
+    const err = new Error("WEIBO_COOKIE_EXPIRED");
+    err.cookieExpired = true;
+    throw err;
+  }
   if (!resp.ok || !Array.isArray(list)) return [];
   return list.map((item, idx) => normalizeHotItem(item, idx)).filter(Boolean).slice(0, 50);
 }
@@ -304,17 +315,24 @@ const server = createServer(async (req, res) => {
       const keywordsRaw = url.searchParams.get("keywords") || "";
       const keywords = keywordsRaw.split(",").map((k) => k.trim()).filter(Boolean);
 
-      const safe = (fn) => fn.catch((e) => { console.error("[fetch error]", e.message); return []; });
-      const [realtime, entertainment, life, society] = await Promise.all([
-        safe(fetchWeiboRealtimeHot()),
+      const safe = (fn) => fn.catch((e) => { console.error("[fetch error]", e.message); return { __error: e }; });
+      const [realtime, entRaw, lifeRaw, socRaw] = await Promise.all([
+        fetchWeiboRealtimeHot().catch((e) => { console.error("[fetch error]", e.message); return []; }),
         safe(fetchWeiboCategoryHot("entertainment", "entertainment")),
         safe(fetchWeiboCategoryHot("life", "life")),
         safe(fetchWeiboCategoryHot("social", "social"))
       ]);
 
+      const unwrap = (v) => Array.isArray(v) ? v : [];
+      const entertainment = unwrap(entRaw);
+      const life = unwrap(lifeRaw);
+      const society = unwrap(socRaw);
+      const cookieExpired = [entRaw, lifeRaw, socRaw].some((v) => v && v.__error && v.__error.cookieExpired);
+
       return sendJson(res, 200, {
         fetchedAt: new Date().toISOString(),
         hasCookie: !!weiboCookie,
+        cookieExpired,
         realtime,
         entertainment,
         life,
